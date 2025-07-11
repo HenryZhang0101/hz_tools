@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- This file contains definitions of shelves, toolbars, and tools.
+ It should not be hand-edited when it is being used by the application.
+ Note, that two definitions of the same element are not allowed in
+ a single file. -->
+
+  <toolshelf name="hz_bookmark" label="HZ_Bookmark">
+    <memberTool name="tool_18"/>
+  </toolshelf>
+
+  <tool name="tool_18" label="Open Bookmark" icon="hicon:/SVGIcons.index?DATATYPES_bundle_smart.svg">
+    <script scriptType="python"><![CDATA[desktop = hou.ui.curDesktop()
+tab = desktop.createFloatingPaneTab(hou.paneTabType.PythonPanel,python_panel_interface="hz_bookmark")
+panel = tab.floatingPanel()
+panel.setName("Node Mark")]]></script>
+  </tool>
+</shelfDocument>

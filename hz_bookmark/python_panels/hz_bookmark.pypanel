@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pythonPanelDocument>
+  <!-- This file contains definitions of Python interfaces and the
+ interfaces menu.  It should not be hand-edited when it is being
+ used by the application.  Note, that two definitions of the
+ same interface or of the interfaces menu are not allowed
+ in a single file. -->
+  <interface name="hz_bookmark" label="Bookmark" icon="hicon:/SVGIcons.index?DATATYPES_bundle_smart.svg" showNetworkNavigationBar="false" help_url="">
+    <script><![CDATA[########################################################################
+# Replace the sample code below with your own to create a
+# PySide interface.  Your code must define an
+# onCreateInterface() function that returns the root widget of
+# your interface.
+#
+# The 'hutil.PySide' is for internal-use only.
+#
+# When developing your own Python Panel, import directly from PySide
+# instead of from 'hutil.PySide'.
+########################################################################
+
+#
+# SAMPLE CODE
+#
+
+from importlib import reload
+import hz_bookmark as nm
+reload(nm)
+window = nm.nodeMark()
+
+def onCreateInterface():
+    return window
+    
+def onHipFileAfterLoad():
+    window.initBundle()
+    
+]]></script>
+    <includeInToolbarMenu menu_position="203" create_separator="false"/>
+    <help><![CDATA[]]></help>
+  </interface>
+</pythonPanelDocument>

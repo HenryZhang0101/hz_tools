@@ -1,0 +1,8 @@
+{
+    "env": [
+      {
+        "HZ_BOOKMARK": "F:/Framework/hz_tools/hz_bookmark"
+      }
+    ],
+    "hpath": "$HZ_BOOKMARK"
+}
