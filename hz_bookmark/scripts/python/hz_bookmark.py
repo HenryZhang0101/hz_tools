@@ -2,12 +2,14 @@ config = {
     "Default_Sort_Mode" : "Node Type", # "Color", "Name", "Node Type"
     "shortcut" : {
         "Delete" : "Del",
+        "Refresh" : "R",
         "Copy_Node" : "Alt+C",
         "Copy_Path" : "Ctrl+C",
         "Paste_Node" : "Ctrl+V",
         "Copy_As_ObjMerge_Relative" : "Ctrl+Shift+R",
         "Copy_As_OBjMerge_Absolute" : "Ctrl+Shift+C",
-        "Open_Parmeter":"Ctrl+P", 
+        "Open_Parmeter" : "Ctrl+P", 
+        "Close" : "Q"
     }
 
 }
@@ -101,7 +103,7 @@ class BundleConfigDialog(QtWidgets.QDialog):
             return
         super().accept()
 
-class nodeMark(QtWidgets.QWidget):
+class Bookmark(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
@@ -183,12 +185,27 @@ class nodeMark(QtWidgets.QWidget):
         self.mainLayout.addWidget(self.searchLine)
         self.mainLayout.addLayout(self.treelayout)
 
+        # self.test_btn = QtWidgets.QPushButton("test")
+        # self.test_btn.clicked.connect(self.test)
+        # self.mainLayout.addWidget(self.test_btn)
+
         self.setLayout(self.mainLayout)
         self.setAcceptDrops(True)
         self.showLayout()
-
+    
+    def test(self):
+        print("test")
+                
     def showLayout(self):
         return self.mainLayout
+    
+    def  closeTab(self):
+        tabs = hou.ui.floatingPaneTabs()
+        for tab in tabs:
+            if tab.isCurrentTab():
+                widget = tab.activeInterfaceRootWidget()
+                if widget is self:
+                    tab.close()
 
     def openMenu(self, position):
         desktop = hou.ui.curDesktop()
@@ -216,6 +233,8 @@ class nodeMark(QtWidgets.QWidget):
 
         item = self.nodeTree.itemAt(position)
         if not item:
+            action1 = menu.addAction("Rrefresh")
+            menu.addSeparator()
             action_add = menu.addAction("Add Seleted Nodes")
             action_paste = menu.addAction("Add Node From Clipboard")
             
@@ -223,8 +242,8 @@ class nodeMark(QtWidgets.QWidget):
             action2 = menu.addAction("Sort by Name")
             action3 = menu.addAction("Sort by Color")
             action4 = menu.addAction("Sort by Node Type")
-            menu.addSeparator()
-            action1 = menu.addAction("Rrefresh")
+            
+            
             action = menu.exec_(self.nodeTree.viewport().mapToGlobal(position))
             if action == action1:
                 self.initBundle()
@@ -345,7 +364,7 @@ class nodeMark(QtWidgets.QWidget):
     def updateTree(self):
         state = {}
         root = self.nodeTree.invisibleRootItem()
-        for item in self.__iterate_items(root):
+        for item in self.iterateItems(root):
             state[self.getPath(item)] = item.isExpanded()
 
         self.nodeBundle = hou.nodeBundle(self.bundleComboBox.currentText())
@@ -434,9 +453,6 @@ class nodeMark(QtWidgets.QWidget):
         if hou.node(path):
             return path
         else:
-            item.setForeground(0, QBrush(QColor(255, 0, 0)))
-            hou.ui.displayMessage(f"Following node is missing, Trying Fix! \n{item.text(0)}")
-            # self.updateTree()
             return None
     
     def getItem(self, path):
@@ -478,11 +494,11 @@ class nodeMark(QtWidgets.QWidget):
                         self.nodeBundle.removeNode(node)
         self.updateTree()
 
-    def __iterate_items(self, parent):
+    def iterateItems(self, parent):
             for i in range(parent.childCount()):
                 child = parent.child(i)
                 yield child
-                yield from self.__iterate_items(child) 
+                yield from self.iterateItems(child) 
 
     def searchItem(self):
         search_text = self.searchLine.text().lower()
@@ -525,7 +541,7 @@ class nodeMark(QtWidgets.QWidget):
         root = self.nodeTree.invisibleRootItem()
         icon_off = hou.qt.Icon("SCENEGRAPH_active_off")
         icon_on = hou.qt.Icon("SCENEGRAPH_active_on")
-        for item in self.__iterate_items(root):
+        for item in self.iterateItems(root):
             # Return the item path
             path = self.getPath(item)
             hou_node = hou.node(path)
@@ -552,16 +568,21 @@ class nodeMark(QtWidgets.QWidget):
             
     def findNode(self, item, column):
         path = self.getPath(item)
+        
         if not path or column != 0:
             return
-        current_node = hou.node(path)
-        parent_node = current_node.parent()
         # get houdini network editor
         network_editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-        network_editor.setPwd(parent_node)
-        network_editor.setCurrentNode(current_node)
-        network_editor.frameSelection()
+        current_node = hou.node(path)
 
+        if len(path.split("/")) <=2:
+            network_editor.setPwd(current_node)
+        else:
+            parent_node = current_node.parent()
+            network_editor.setPwd(parent_node)
+            network_editor.setCurrentNode(current_node)
+            network_editor.frameSelection()
+        
     def addNode(self,nodes):
         if self.nodeBundle.pattern():
             hou.ui.displayMessage("This is a smart bundle.")
@@ -602,7 +623,6 @@ class nodeMark(QtWidgets.QWidget):
 
     def setColor(self, sitem):
         current_color = sitem.backgroundColor(1)
-        print(current_color)
         hou_color = hou.qt.fromQColor(current_color)[0]
         color = hou.ui.selectColor(hou_color)
         items = self.nodeTree.selectedItems()
@@ -682,12 +702,14 @@ class nodeMark(QtWidgets.QWidget):
     def configShortcut(self):
         shortcut = [
             ("Delete",self.deleteNode),
+            ("Refresh",self.updateTree),
             ("Copy_Node",self.copyNode),
             ("Copy_Path",self.copyPath),
             ("Paste_Node",self.pasteNode),
             ("Copy_As_ObjMerge_Relative",lambda: self.copyAsObjMerge(True)),
             ("Copy_As_OBjMerge_Absolute",lambda: self.copyAsObjMerge(False)),
-            ("Open_Parmeter",self.openParam)
+            ("Open_Parmeter",self.openParam),
+            ("Close",self.closeTab)
         ]
         for name, action in shortcut:
             key_seq = self.config["shortcut"].get(name)
@@ -695,6 +717,10 @@ class nodeMark(QtWidgets.QWidget):
                 shortcut = QtWidgets.QShortcut(QKeySequence(key_seq), self)
                 shortcut.activated.connect(action)
 
+
+widget = Bookmark()
 def onCreateInterface():
-    widget = nodeMark()
     return widget
+
+def onHipFileAfterLoad():
+    widget.initBundle()
