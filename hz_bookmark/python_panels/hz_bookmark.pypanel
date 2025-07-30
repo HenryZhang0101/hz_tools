@@ -25,7 +25,7 @@
 from importlib import reload
 import hz_bookmark as nm
 reload(nm)
-window = nm.nodeMark()
+window = nm.Bookmark()
 
 def onCreateInterface():
     return window

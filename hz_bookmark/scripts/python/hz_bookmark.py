@@ -1,5 +1,4 @@
 config = {
-    "Default_Sort_Mode" : "Node Type", # "Color", "Name", "Node Type"
     "shortcut" : {
         "Delete" : "Del",
         "Refresh" : "R",
@@ -14,6 +13,7 @@ config = {
 
 }
 
+from itertools import count
 import hou
 from PySide2 import QtWidgets, QtCore  
 from PySide2.QtGui import QColor, QBrush, QIcon, QKeySequence, QRegExpValidator
@@ -112,6 +112,7 @@ class Bookmark(QtWidgets.QWidget):
         self.bundleComboBox = QtWidgets.QComboBox()
         self.bundleComboBox.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.bundleComboBox.currentIndexChanged.connect(self.updateTree)
+        self.bundleComboBox.currentIndexChanged.connect(self.saveCurrentData)
         self.addBundle_btn = QtWidgets.QPushButton()
         self.addBundle_btn.setIcon(hou.qt.Icon("DATATYPES_bundle"))
         self.addBundle_btn.clicked.connect(lambda: self.addBundle(pattern=None))
@@ -171,10 +172,12 @@ class Bookmark(QtWidgets.QWidget):
         
         # load config
         self.config = config
-        self.initBundle()
-        self.updateTree()
         self.configShortcut()
-        self.setSortMode(self.config["Default_Sort_Mode"])
+        self.initData()
+        self.initBundle()
+        self.loadData()
+        
+        self.updateTree()
         self.nodeTree.expandAll()
 
         # layout
@@ -199,7 +202,33 @@ class Bookmark(QtWidgets.QWidget):
     def showLayout(self):
         return self.mainLayout
     
-    def  closeTab(self):
+    def initData(self):
+        data_node_path = "/obj/__bookmark_data__"
+        if not hou.node(data_node_path):
+            self.data_node = hou.node("/obj").createNode("pythonscript", node_name="__bookmark_data__", force_valid_node_name=False)
+            self.data_node.hide(1)
+        else:
+            self.data_node = hou.node(data_node_path)
+        self.sort_mode = None
+
+    def loadData(self):
+        data:str = self.data_node.parm("python").eval()
+        if not data.endswith("'"):
+            return
+        data = data.strip("'")
+        mode = data.split(",")[0]
+        currentText = data.split(",")[1]
+        self.setSortMode(mode)
+        self.bundleComboBox.setCurrentText(currentText)
+
+    def saveCurrentData(self):
+        if self.sort_mode:
+            data:str = f"{self.sort_mode},{self.bundleComboBox.currentText()}"
+            self.data_node.setParms({
+                "python": f"\'{data}\'"
+            })
+        
+    def closeTab(self):
         tabs = hou.ui.floatingPaneTabs()
         for tab in tabs:
             if tab.isCurrentTab():
@@ -290,7 +319,6 @@ class Bookmark(QtWidgets.QWidget):
                 action_map[selected_action]()
 
     def initBundle(self):
-        currentText= self.bundleComboBox.currentText()
         self.bundleComboBox.clear()
         bundles = hou.nodeBundles()
         if bundles:
@@ -304,9 +332,6 @@ class Bookmark(QtWidgets.QWidget):
         else:
             hou.addNodeBundle("Bookmarks")
             self.bundleComboBox.addItem(hou.qt.Icon("DATATYPES_bundle"),"Bookmarks")
-        
-        if currentText and self.bundleComboBox.findText(currentText) != -1:
-            self.bundleComboBox.setCurrentText(currentText)
         
         self.nodeBundle = hou.nodeBundle(self.bundleComboBox.currentText())
 
@@ -453,6 +478,9 @@ class Bookmark(QtWidgets.QWidget):
         if hou.node(path):
             return path
         else:
+            item.setForeground(0, QBrush(QColor(255, 0, 0)))
+            if not item.text(0).endswith("!"):
+                item.setText(0,f"{item.text(0)} - Node not found, please refresh!")
             return None
     
     def getItem(self, path):
@@ -528,7 +556,10 @@ class Bookmark(QtWidgets.QWidget):
             return
     
         new_state = 1 - current_state
-        node = hou.node(self.getPath(item))
+        path = self.getPath(item)
+        if not path:
+            return
+        node = hou.node(path)
         if column == 1:
             node.setDisplayFlag(new_state == 1)
             if hasattr(node,"setRenderFlag"):
@@ -538,12 +569,13 @@ class Bookmark(QtWidgets.QWidget):
         if column == 3:
             node.setSelectableTemplateFlag(new_state == 1)
 
-        root = self.nodeTree.invisibleRootItem()
+        root = item.parent()
         icon_off = hou.qt.Icon("SCENEGRAPH_active_off")
         icon_on = hou.qt.Icon("SCENEGRAPH_active_on")
         for item in self.iterateItems(root):
-            # Return the item path
             path = self.getPath(item)
+            if not path:
+                continue
             hou_node = hou.node(path)
             if not hou_node.parent().isEditable():
                 continue
@@ -617,8 +649,10 @@ class Bookmark(QtWidgets.QWidget):
         event.acceptProposedAction()
 
     def setSortMode(self, mode):
-        self.nodeTree.sort_mode = mode  
+        self.nodeTree.sort_mode = mode 
+        self.sort_mode = mode 
         self.nodeTree.sortItems(0, self.nodeTree.header().sortIndicatorOrder())
+        self.saveCurrentData()
         self.updateTree()
 
     def setColor(self, sitem):
